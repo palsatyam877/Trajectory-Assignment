@@ -24,6 +24,7 @@ const corsOptions = {
   };
 
 const app = express();
+
 app.use(cors({ origin: "*" }));
 
 const __filename = fileURLToPath(import.meta.url);
