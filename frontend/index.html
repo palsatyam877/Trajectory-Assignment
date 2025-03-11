@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSV Upload and Download</title>
+</head>
+<body>
+    <h1>Upload CSV File</h1>
+    <input type="file" id="csvFileInput" accept=".csv">
+    <button id="uploadButton">Upload and Process</button>
+    <div id="statusMessage"></div>
+
+    <script>
+        document.getElementById('uploadButton').addEventListener('click', () => {
+            const fileInput = document.getElementById('csvFileInput');
+            const file = fileInput.files[0];
+            const statusDiv = document.getElementById('statusMessage');
+
+            if (!file) {
+                alert('Please select a CSV file.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csvFile', file);
+
+            statusDiv.textContent = 'Uploading and processing... Please wait.';
+
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Request timed out')), 120000) // 2 minutes timeout
+            );
+
+            Promise.race([
+                fetch('http://localhost:5000/upload', {
+                    method: 'POST',
+                    body: formData,
+                }),
+                timeoutPromise
+            ])
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                statusDiv.textContent = ''; // Clear status message
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'processed_result.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                statusDiv.textContent = 'An error occurred during upload/download. Please try again.';
+                // alert(error.message);
+            });
+        });
+    </script>
+</body>
+</html>
