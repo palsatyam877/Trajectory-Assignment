@@ -111,15 +111,11 @@ const addToDataBase = async (results) => {
             const existingEntry = await DataModel.findOne({ Company });
 
             if(existingEntry) {
-               console.log("exist db")
-
                existingEntry.Website = Website;
                existingEntry.Complete_SiteMap = Complete_SiteMap;
                existingEntry.Insight_from_prompt = Insight_from_prompt;
                await existingEntry.save();   
             } else {
-                console.log("absent db")
-
                 const newEntry = new DataModel({ Company , Website , Complete_SiteMap ,Insight_from_prompt });
                 await newEntry.save();      
             }            
@@ -132,13 +128,9 @@ const addToDataBase = async (results) => {
 // Upload and process CSV file
 
 app.post("/upload" , upload.single("csvFile") , (req, res) => {
-    console.log(req.file)
-
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
     }
-
-    console.log("route was called")
 
     let results = [];
     fs.createReadStream(req.file.path)
