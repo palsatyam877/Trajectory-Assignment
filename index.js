@@ -12,10 +12,26 @@ import { fileURLToPath } from "url";
 import CSV from 'fast-csv'
 import {Parser} from 'json2csv'
 import { Transform } from 'stream';
+import mongoose from 'mongoose';
+import { CONNREFUSED } from "dns";
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+const mongoURI = process.env.DB_URI || "your-mongodb-uri-here";
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("✅ Connected to MongoDB Atlas"))
+    .catch(err => console.error("❌ MongoDB Connection Error:", err));
+
+const dataSchema = new mongoose.Schema({
+        Company : { type: String, required: true },
+        Website : { type: String, required: true },
+        Complete_SiteMap : { type: [String], required: true },
+        Insight_from_prompt: { type: String, required: true }
+});
+
+const DataModel = mongoose.model('TrajectoryData', dataSchema);
 
 const corsOptions = {
     origin: 'http://your-ui-domain.com', // Replace with your UI's domain
@@ -87,6 +103,32 @@ const addAiPromtResponses = async (results) => {
     return aiPromtAddedArray
 }
 
+const addToDataBase = async (results) => {
+    for(const currComapny of results) {
+        const { Company , Website , Complete_SiteMap , Insight_from_prompt} = currComapny
+
+        try {
+            const existingEntry = await DataModel.findOne({ Company });
+
+            if(existingEntry) {
+               console.log("exist db")
+
+               existingEntry.Website = Website;
+               existingEntry.Complete_SiteMap = Complete_SiteMap;
+               existingEntry.Insight_from_prompt = Insight_from_prompt;
+               await existingEntry.save();   
+            } else {
+                console.log("absent db")
+
+                const newEntry = new DataModel({ Company , Website , Complete_SiteMap ,Insight_from_prompt });
+                await newEntry.save();      
+            }            
+        } catch (e) {
+            console.log(e)
+        }
+    }
+}
+
 // Upload and process CSV file
 
 app.post("/upload" , upload.single("csvFile") , (req, res) => {
@@ -108,6 +150,8 @@ app.post("/upload" , upload.single("csvFile") , (req, res) => {
             results = await addSiteMapping(results);
 
             results = await addAiPromtResponses(results);
+
+            await addToDataBase(results)
 
             const json2csvParser = new Parser();
             const _CSV = json2csvParser.parse(results)
